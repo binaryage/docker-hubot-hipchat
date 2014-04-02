@@ -25,6 +25,7 @@
 # Notes:
 #   See FastSpring notifications overview for further details
 #   https://support.fastspring.com/entries/236490-Notifications-Overview
+#   https://support.fastspring.com/entries/22074351-Working-with-Variables-in-SpringBoard
 #
 # Author:
 #   matteoagosti
@@ -52,7 +53,6 @@ module.exports = (robot) ->
 
   # just a test route
   robot.router.get "/hubot/fastspring/totalfinder", (req, res) ->
-    robot.messageRoom "26848_binaryage@conf.hipchat.com", "I'm listening..."
     res.end "I'm here!"
 
   robot.router.post "/hubot/fastspring/totalfinder", (req, res) ->
@@ -68,26 +68,28 @@ module.exports = (robot) ->
       res.end "unauthorized"
       return
       
-    res.writeHead 200, {'Content-Type': 'text/plain'}
-    res.end "OK"
-    
     moneyz = ""
-    moneyz = "(#{query.currency}#{query.totalValue})" if query.totalValue and parseInt(query.totalValue, 10)>0
+    moneyz = " [#{query.totalValue}#{query.currency}]" if query.totalValue and parseInt(query.totalValue, 10)>0
     location = ""
-    location = " from #{query.country}" if query.country
+    location = " from <i>#{query.country}</i>" if query.country
     verb = "bought"
     verb = "activated" if not moneyz
-    message = "<a href='mailto:#{query.email}'>#{query.fullName}</a>#{location} just #{verb} #{query.productName}#{moneyz}"
+    message = "<a href='mailto:#{query.email}'>#{query.fullName}</a>#{location} just #{verb} <b>#{query.productName}</b>#{moneyz}"
     
     params = {
       room: process.env.HUBOT_HIPCHAT_ROOM || TEST_ROOM_ID
-      from: 'hubot'
+      from: 'Hubot'
       message: message
       color: 'gray'
     }
 
-    chat.postMessage params, (data) ->
-      # TODO: test for errors
-    
     # jabber api is too loud
-    # robot.messageRoom query.room, "#{query.fullName}(#{query.email}) just bought #{query.productName}"
+    # robot.messageRoom query.room, message
+    
+    chat.postMessage params, (data) ->
+      if data and data.status == "sent"
+        res.writeHead 200, {'Content-Type': 'text/plain'}
+        res.end "OK"
+      else
+        res.writeHead 500, {'Content-Type': 'text/plain'}
+        res.end "HipChat message failed to be delivered"
