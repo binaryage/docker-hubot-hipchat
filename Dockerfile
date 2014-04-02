@@ -12,7 +12,7 @@ RUN npm install -g coffee-script hubot
 RUN hubot --create .
 RUN npm install --save hubot-hipchat
 RUN chmod 755 ./bin/hubot
-RUN npm install aws2js # s3-brain dependency
+RUN npm install aws2js node-hipchat # custom script dependencies
 ENV PATH /var/hubot/bin:$PATH
 
 EXPOSE 8080
