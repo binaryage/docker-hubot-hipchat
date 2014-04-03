@@ -42,15 +42,15 @@ module.exports = (robot) ->
     throw new Error('HUBOT_S3_WATCHER_CHECK_INTERVAL must be an integer')
     
   unless HIPCHAT_TOKEN 
-    robot.logger.error "Please set the HUBOT_HIPCHAT_TOKEN environment variable."
+    robot.logger.error "s3-watcher: Please set the HUBOT_HIPCHAT_TOKEN environment variable."
     return
     
   unless S3_ACCESS_KEY_ID 
-    robot.logger.error "Please set the HUBOT_S3_WATCHER_ACCESS_KEY_ID environment variable."
+    robot.logger.error "s3-watcher: Please set the HUBOT_S3_WATCHER_ACCESS_KEY_ID environment variable."
     return
     
   unless S3_SECRET_ACCESS_KEY 
-    robot.logger.error "Please set the HUBOT_S3_WATCHER_SECRET_ACCESS_KEY environment variable."
+    robot.logger.error "s3-watcher: Please set the HUBOT_S3_WATCHER_SECRET_ACCESS_KEY environment variable."
     return
     
   chat = new hipchat(HIPCHAT_TOKEN)
@@ -58,7 +58,7 @@ module.exports = (robot) ->
   #############################################################################
   
   # TODO: maybe this could be configurable in hubot's brain in the future
-  isBucketIgnored_ = (bucketName) ->
+  isBucketIgnored = (bucketName) ->
     return true  if bucketName.match(/^hubot/) # hubot brain
     return true  if bucketName.match(/^s3hub/)
     return true  if bucketName.match(/^arq/) # arq backups
@@ -69,23 +69,23 @@ module.exports = (robot) ->
   run = (cb) ->
     counter = 0
     checked = 0
-    fetchBucketNames_ (bucketNames) ->
-      robot.logger.debug "got #{bucketNames.length} buckets"
+    fetchBucketNames (bucketNames) ->
+      robot.logger.debug "s3-watcher: got #{bucketNames.length} buckets"
       cb("OK") unless bucketNames.length
       _.each bucketNames, (bucket) -> 
-        fetchBucketList_ bucket, (newList) ->
-          robot.logger.debug "got current #{newList.length} items in #{bucket}"
+        fetchBucketList bucket, (newList) ->
+          robot.logger.debug "s3-watcher: got current #{newList.length} items in #{bucket}"
           checked += newList.length
-          oldList = getCachedBucketList_(bucket)
-          robot.logger.debug "got #{oldList.length} cached items in #{bucket}"
-          report = buildReportForBucket_(bucket, oldList, newList)
+          oldList = getCachedBucketList(bucket)
+          robot.logger.debug "s3-watcher: got #{oldList.length} cached items in #{bucket}"
+          report = buildReportForBucket(bucket, oldList, newList)
           if report.added.length or report.removed.length or report.modified.length
-            robot.logger.debug "RESULT: changed detected in #{bucket} (added=#{report.added.length} removed=#{report.removed.length} modified=#{report.modified.length})"
-            reportToHipChat_ report
-            storeBucketListInCache_ bucket, newList
+            robot.logger.debug "s3-watcher: RESULT: changed detected in #{bucket} (added=#{report.added.length} removed=#{report.removed.length} modified=#{report.modified.length})"
+            reportToHipChat report
+            storeBucketListInCache bucket, newList
             # prefetchCDN_ CDN_DOWNLOADS2_ID, CDN_LOGIN, CDN_PASSWORD, report  if bucket.match(/^downloads-1/)
           else
-            robot.logger.debug "RESULT: nothing changed in #{bucket}"
+            robot.logger.debug "s3-watcher: RESULT: nothing changed in #{bucket}"
           counter+=1
           cb("OK - checked #{checked} items") if counter==bucketNames.length
 
@@ -116,27 +116,27 @@ module.exports = (robot) ->
   #   options.payload = components.join("&")
   #   query = "https://client.cdn77.com/api/prefetch"
   #   res = UrlFetchApp.fetch(query, options)
-  #   robot.logger.log "CDN PREFETCH " + res + ":\n" + query + "\n" + Utilities.jsonStringify(options)
+  #   robot.logger.log "s3-watcher: CDN PREFETCH " + res + ":\n" + query + "\n" + Utilities.jsonStringify(options)
   #   answer = Utilities.jsonParse(res.getContentText())
   #   return true  if answer and answer["status"] and answer["status"] is "ok"
-  #   postMessageToHipChat_ "Failed to prefetch CDN [" + res.getResponseCode() + "]: " + res.getContentText()
+  #   postMessageToHipChat "Failed to prefetch CDN [" + res.getResponseCode() + "]: " + res.getContentText()
   #   false
     
-  postMessageToHipChat_ = (message) ->
+  postMessageToHipChat = (message) ->
     params =
       room: HIPCHAT_ROOM
       from: HIPCHAT_SENDER
       message: message
       color: HIPCHAT_COLOR 
       
-    robot.logger.debug "about to post\n"+JSON.stringify(params, undefined, 2)
+    robot.logger.debug "s3-watcher: about to post\n"+JSON.stringify(params, undefined, 2)
     chat.postMessage params, (data) ->
       if data and data.status == "sent"
-        robot.logger.info "a message to hipchat posted (#{message.length} chars)"
+        robot.logger.info "s3-watcher: a message to hipchat posted (#{message.length} chars)"
       else
-        robot.logger.error "unable to post to hipchat"
+        robot.logger.error "s3-watcher: unable to post to hipchat"
   
-  reportToHipChat_ = (report) ->
+  reportToHipChat = (report) ->
     reportList = (intro, list, limit) ->
       body = []
       i = 0
@@ -172,31 +172,31 @@ module.exports = (robot) ->
       message += "<br/>" + all
     else
       message += " " + all.trim()
-    res = postMessageToHipChat_(message)
+    res = postMessageToHipChat(message)
   
-  clearCache_ = ->
+  clearCache = ->
     delete robot.brain.data.s3watcher if robot.brain.data.s3watcher
   
-  getCachedBucketList_ = (bucket) ->
+  getCachedBucketList = (bucket) ->
     robot.brain.data.s3watcher?.buckets?[bucket] || []
   
-  storeBucketListInCache_ = (bucket, list) ->
-    robot.logger.debug "stored #{list.length} items under #{bucket}"
+  storeBucketListInCache = (bucket, list) ->
+    robot.logger.debug "s3-watcher: stored #{list.length} items under #{bucket}"
     robot.brain.data.s3watcher = { buckets: {} } unless robot.brain.data.s3watcher
     robot.brain.data.s3watcher.buckets[bucket] = _.clone(list)
   
-  fetchBucketList_ = (bucket, cb) ->
+  fetchBucketList = (bucket, cb) ->
     tagTrimRe = new RegExp('\^"+|"+$', 'g')
     
     s3 = aws.load('s3', S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY)
     s3.setBucket(bucket)
 
     items = []
-    robot.logger.debug "fetchBucketList_ #{bucket}"
+    robot.logger.debug "s3-watcher: fetchBucketList #{bucket}"
     fetch = (marker) ->
       query = ""
       query = "?marker=#{marker}" if marker
-      robot.logger.debug "fetchBucketList_ marker=#{marker}"
+      robot.logger.debug "s3-watcher: fetchBucketList marker=#{marker}"
       s3.get '/', query, 'xml', (error, result) ->
         cb?(null, error) if error
       
@@ -210,13 +210,13 @@ module.exports = (robot) ->
         if result["IsTruncated"] == "true"
           fetch(result["Marker"])
         else
-          robot.logger.debug "fetchBucketList_ done #{items.length}"
+          robot.logger.debug "s3-watcher: fetchBucketList done #{items.length}"
           cb(items)
         
     fetch()
   
-  fetchBucketNames_ = (cb) ->
-    robot.logger.debug "fetchBucketNames_"
+  fetchBucketNames = (cb) ->
+    robot.logger.debug "s3-watcher: fetchBucketNames"
     s3 = aws.load('s3', S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY)
     s3.get '/', 'xml', (error, result) ->
       cb?(null, error) if error
@@ -224,13 +224,13 @@ module.exports = (robot) ->
       names = []
       for obj in result["Buckets"]["Bucket"]
         name = obj.Name
-        continue if isBucketIgnored_(name)
+        continue if isBucketIgnored(name)
         names.push name
         
-      robot.logger.debug "fetchBucketNames_ => #{names.length}"
+      robot.logger.debug "s3-watcher: fetchBucketNames => #{names.length}"
       cb(names)
   
-  buildReportForBucket_ = (bucket, oldList, newList) ->
+  buildReportForBucket = (bucket, oldList, newList) ->
     oldPaths = _.map oldList, (item) -> item.path
     newPaths = _.map newList, (item) -> item.path
 
@@ -266,7 +266,7 @@ module.exports = (robot) ->
     res.end response
     
   robot.router.get "/hubot/s3watcher/reset", (req, res) ->
-    clearCache_()
+    clearCache()
     res.writeHead 200, {'Content-Type': 'text/plain'}
     response = "STATE:\n" + JSON.stringify(robot.brain.data?.s3watcher, undefined, 2)
     res.end response
@@ -275,10 +275,10 @@ module.exports = (robot) ->
     run (result) ->
       res.writeHead 200, {'Content-Type': 'text/plain'}
       res.end result
-      robot.logger.info "S3 Watcher: TEST RUN => " + result
+      robot.logger.info "s3-watcher: TEST RUN => " + result
       
   worker = ->
     run (result) ->
-      robot.logger.info "S3 Watcher: SCHEDULED RUN => " + result
+      robot.logger.info "s3-watcher: SCHEDULED RUN => " + result
   setInterval(worker, CHECK_INTERVAL*1000)
-  robot.logger.info "S3 Watcher: scheduled to run every #{CHECK_INTERVAL} seconds"
+  robot.logger.info "s3-watcher: scheduled to run every #{CHECK_INTERVAL} seconds"
