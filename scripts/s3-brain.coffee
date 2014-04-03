@@ -69,7 +69,6 @@ module.exports = (robot) ->
 
   s3 = aws.load('s3', key, secret)
   
-
   # data structure -> JSON string
   serialize = (data) ->
     res = ""
@@ -88,12 +87,12 @@ module.exports = (robot) ->
       robot.logger.error "s3-brain: Unable to unserialize brain memory: #{e.message}"
     res
 
-  saveBrain = (brain_data, callback) ->
+  saveBrain = (brainData, callback) ->
     if !loaded
       robot.logger.debug "s3-brain: Not saving to S3, because not loaded yet"
       return
       
-    json = serialize(brain_data)
+    json = serialize(brainData)
     if _.isEqual(json, lastSavedState) # optimization, save only when anything changed
       robot.logger.debug "s3-brain: Not saving to S3, no brain changes"
       return
