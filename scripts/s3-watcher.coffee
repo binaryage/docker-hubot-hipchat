@@ -65,6 +65,9 @@ module.exports = (robot) ->
     return true  if bucketName.match(/^discuss-s3/)
     # note: discuss-backup-binaryage is enabled for now
     false
+    
+  isCDNBucket = (bucketName) ->
+    bucketName=="downloads-s3.binaryage.com"
   
   run = (cb) ->
     counter = 0
@@ -161,9 +164,10 @@ module.exports = (robot) ->
     all = []
     all.push added  if added
     all.push modified  if modified
-    if removed and report.bucket=="downloads-s3.binaryage.com"
+    if removed
       all.push removed
-      all.push "Warning: removed files might still be cached by CDN at http://downloads.binaryage.com. Use <a href='http://cdn77.com'>cdn77.com</a> to remove them."
+      if isCDNBucket(report.bucket)
+        all.push "Warning: removed files might still be cached by CDN at http://downloads.binaryage.com. Use <a href='http://cdn77.com'>cdn77.com</a> to remove them."
     all = all.join("<br/>")
     lines = all.split("<br/>")
     bucketMarkup = "<a href=\"http://" + report.bucket + "\">" + report.bucket + "</a>"

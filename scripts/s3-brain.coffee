@@ -49,6 +49,7 @@
 
 util  = require 'util'
 aws   = require 'aws2js'
+_ = require 'lodash'
 
 module.exports = (robot) ->
   key               = process.env.HUBOT_S3_BRAIN_ACCESS_KEY_ID
@@ -93,7 +94,7 @@ module.exports = (robot) ->
       return
       
     json = serialize(brainData)
-    if _.isEqual(json, lastSavedState) # optimization, save only when anything changed
+    if json==lastSavedState # optimization, save only when anything changed
       robot.logger.debug "s3-brain: Not saving to S3, no brain changes"
       return
 
@@ -105,6 +106,7 @@ module.exports = (robot) ->
       if err
         robot.logger.error util.inspect(err)
       else if response
+        lastSavedState = json
         robot.logger.info "s3-brain: Saved brain to S3: #{brainPath}[#{json.length} chars]"
 
       if callback then callback(err, response)
@@ -123,6 +125,10 @@ module.exports = (robot) ->
   robot.brain.on 'loaded', () ->
     loaded = true
     robot.brain.resetSaveInterval(saveInterval)
+    robot.logger.info "s3-brain: set save interval to #{saveInterval} seconds"
+    if not robot.brain.autoSave
+      robot.logger.warning "s3-brain: brain autosaving was disabled => enabling it again"
+      robot.brain.setAutoSave(true)
 
   robot.brain.on 'save', (data = {}) ->
     saveBrain(data)
