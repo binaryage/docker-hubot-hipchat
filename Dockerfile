@@ -12,11 +12,13 @@ RUN npm install -g coffee-script hubot
 RUN hubot --create .
 RUN npm install --save hubot-hipchat
 RUN chmod 755 ./bin/hubot
-RUN npm install aws2js node-hipchat # custom script dependencies
+RUN npm install aws2js node-hipchat underscore # custom script dependencies
 ENV PATH /var/hubot/bin:$PATH
 
 EXPOSE 8080
 
-ADD hubot-scripts.json hubot-scripts.json
+RUN rm hubot-scripts.json
+RUN rm scripts/roles.coffee # we are using simple HUBOT_AUTH_ADMIN env var
+ADD hubot-scripts.json /var/hubot/hubot-scripts.json
 ADD scripts /var/hubot/scripts
 CMD hubot --adapter hipchat

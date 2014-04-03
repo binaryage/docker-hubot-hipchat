@@ -69,9 +69,9 @@ module.exports = (robot) ->
       return
       
     moneyz = ""
-    moneyz = " [#{query.totalValue}#{query.currency}]" if query.totalValue and parseInt(query.totalValue, 10)>0
+    moneyz = " [#{query.totalValue} #{query.currency}]" if query.totalValue and parseInt(query.totalValue, 10)>0
     location = ""
-    location = " from <i>#{query.country}</i>" if query.country
+    location = " from #{query.country}" if query.country
     verb = "bought"
     verb = "activated" if not moneyz
     message = "<a href='mailto:#{query.email}'>#{query.fullName}</a>#{location} just #{verb} <b>#{query.productName}</b>#{moneyz}"
