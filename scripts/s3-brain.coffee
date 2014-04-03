@@ -51,65 +51,93 @@ util  = require 'util'
 aws   = require 'aws2js'
 
 module.exports = (robot) ->
-
-  loaded            = false
   key               = process.env.HUBOT_S3_BRAIN_ACCESS_KEY_ID
   secret            = process.env.HUBOT_S3_BRAIN_SECRET_ACCESS_KEY
   bucket            = process.env.HUBOT_S3_BRAIN_BUCKET
-  save_interval     = process.env.HUBOT_S3_BRAIN_SAVE_INTERVAL || 30 * 60
-  brain_dump_path   = "#{bucket}/brain-dump.json"
+  saveInterval      = process.env.HUBOT_S3_BRAIN_SAVE_INTERVAL || 30 * 60
+  brainPath         = process.env.HUBOT_S3_BRAIN_PATH || "#{bucket}/brain-dump.json"
+  loaded            = false
+  lastSavedState    = null
 
   if !key && !secret && !bucket
     throw new Error('S3 brain requires HUBOT_S3_BRAIN_ACCESS_KEY_ID, ' +
       'HUBOT_S3_BRAIN_SECRET_ACCESS_KEY and HUBOT_S3_BRAIN_BUCKET configured')
 
-  save_interval = parseInt(save_interval)
-  if isNaN(save_interval)
+  saveInterval = parseInt(saveInterval)
+  if isNaN(saveInterval)
     throw new Error('HUBOT_S3_BRAIN_SAVE_INTERVAL must be an integer')
 
   s3 = aws.load('s3', key, secret)
+  
 
-  store_brain = (brain_data, callback) ->
+  # data structure -> JSON string
+  serialize = (data) ->
+    res = ""
+    try
+      res = JSON.stringify(data, undefined, 2)
+    catch e
+      robot.logger.error "s3-brain: Unable to serialize brain state: #{e.message}"
+    res
+
+  # JSON string -> data structure
+  unserialize = (buffer) ->
+    res = {}
+    try
+      res = JSON.parse(buffer)
+    catch e
+      robot.logger.error "s3-brain: Unable to unserialize brain memory: #{e.message}"
+    res
+
+  saveBrain = (brain_data, callback) ->
     if !loaded
-      robot.logger.debug 'Not saving to S3, because not loaded yet'
+      robot.logger.debug "s3-brain: Not saving to S3, because not loaded yet"
+      return
+      
+    json = serialize(brain_data)
+    if _.isEqual(json, lastSavedState) # optimization, save only when anything changed
+      robot.logger.debug "s3-brain: Not saving to S3, no brain changes"
       return
 
-    buffer = new Buffer(JSON.stringify(brain_data, undefined, 2))
+    buffer = new Buffer(json)
     headers =
       'Content-Type': 'application/json'
 
-    s3.putBuffer brain_dump_path, buffer, 'private', headers, (err, response) ->
+    s3.putBuffer brainPath, buffer, 'private', headers, (err, response) ->
       if err
         robot.logger.error util.inspect(err)
       else if response
-        robot.logger.debug "Saved brain to S3 path #{brain_dump_path}"
+        robot.logger.info "s3-brain: Saved brain to S3: #{brainPath}[#{json.length} chars]"
 
       if callback then callback(err, response)
 
-  robot.logger.debug "Loading brain from #{brain_dump_path}..."
-  s3.get brain_dump_path, 'buffer', (err, response) ->
-    if response && response.buffer
-      memory = response.buffer.toString()
-      robot.logger.info "Restoring brain memory from S3: (#{brain_dump_path})[#{memory.length} chars]"
-      robot.brain.mergeData JSON.parse(memory)
-    else
-      robot.logger.info "No brain memory available at S3: #{brain_dump_path} => started with no memory"
-      robot.brain.mergeData {}
-
+  loadBrain = ->
+    robot.logger.debug "Loading brain from #{brainPath}..."
+    s3.get brainPath, 'buffer', (err, response) ->
+      if response && response.buffer
+        json = response.buffer.toString()
+        robot.logger.info "s3-brain: Restoring brain memory from S3: #{brainPath}[#{json.length} chars]"
+        robot.brain.mergeData unserialize(json)
+      else
+        robot.logger.info "s3-brain: No brain memory available in S3: #{brainPath} => started with no memory"
+        robot.brain.mergeData {}
+        
   robot.brain.on 'loaded', () ->
     loaded = true
-    robot.brain.resetSaveInterval(save_interval)
+    robot.brain.resetSaveInterval(saveInterval)
 
   robot.brain.on 'save', (data = {}) ->
-    store_brain(data)
+    saveBrain(data)
     
   robot.router.get "/hubot/s3brain/show", (req, res) ->
     res.writeHead 200, {'Content-Type': 'text/plain'}
-    response = "BRAIN:\n" + JSON.stringify(robot.brain.data, undefined, 2)
+    response = "BRAIN:\n" + serialize(robot.brain.data)
     res.end response
     
   robot.router.get "/hubot/s3brain/forget", (req, res) ->
     robot.brain.data = {}
     res.writeHead 200, {'Content-Type': 'text/plain'}
-    response = "BRAIN:\n" + JSON.stringify(robot.brain.data, undefined, 2)
+    response = "BRAIN:\n" + serialize(robot.brain.data)
     res.end response
+
+  # load brain on startup
+  loadBrain()
