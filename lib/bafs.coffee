@@ -16,6 +16,7 @@ module.exports = (robot, account, privateKey, hipchatToken, room) ->
     unless crypto.createHash("md5").update(query.security_data + privateKey, 'utf8').digest('hex') is query.security_hash
       res.writeHead 401, {'Content-Type': 'text/plain'}
       res.end "unauthorized"
+      robot.logger.warning "Unauthorized request:\n#{query}"
       return
       
     moneyz = ""
@@ -43,3 +44,4 @@ module.exports = (robot, account, privateKey, hipchatToken, room) ->
       else
         res.writeHead 500, {'Content-Type': 'text/plain'}
         res.end "HipChat message failed to be delivered"
+        robot.logger.warning "HipChat message failed to be delivered"
