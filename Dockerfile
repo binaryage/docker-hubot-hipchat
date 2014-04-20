@@ -21,4 +21,5 @@ RUN rm hubot-scripts.json
 RUN rm scripts/roles.coffee # we are using simple HUBOT_AUTH_ADMIN env var
 ADD hubot-scripts.json /var/hubot/hubot-scripts.json
 ADD scripts /var/hubot/scripts
+ADD lib /var/hubot/lib
 CMD hubot --adapter hipchat
