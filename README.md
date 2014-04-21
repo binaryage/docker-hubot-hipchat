@@ -7,7 +7,7 @@
 
 ## Custom scripts
 
-Our Hubot loads default set of scripts except `roles.coffee`. 
+Our Hubot loads default set of scripts except `roles.coffee`.
 Additioanlly it loads our [custom scripts](scripts).
 
 ## Resources

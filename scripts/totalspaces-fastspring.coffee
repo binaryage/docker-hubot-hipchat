@@ -14,17 +14,17 @@ bafs = require "./../lib/bafs"
 module.exports = (robot) ->
   account = "totalspaces"
   env = process.env
-  
+
   unless env.HUBOT_TS_FASTSPRING_PRIVATE_KEY
     robot.logger.error "Please set the HUBOT_TS_FASTSPRING_PRIVATE_KEY environment variable."
     return
-    
-  unless env.HUBOT_HIPCHAT_TOKEN 
+
+  unless env.HUBOT_HIPCHAT_TOKEN
     robot.logger.error "Please set the HUBOT_HIPCHAT_TOKEN environment variable."
     return
 
-  unless env.HUBOT_HIPCHAT_ROOM 
+  unless env.HUBOT_HIPCHAT_ROOM
     robot.logger.error "Please set the HUBOT_HIPCHAT_ROOM environment variable."
     return
-    
+
   bafs(robot, account, env.HUBOT_TS_FASTSPRING_PRIVATE_KEY, env.HUBOT_HIPCHAT_TOKEN, env.HUBOT_HIPCHAT_ROOM)

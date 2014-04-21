@@ -69,7 +69,7 @@ module.exports = (robot) ->
     throw new Error('HUBOT_S3_BRAIN_SAVE_INTERVAL must be an integer')
 
   s3 = aws.load('s3', key, secret)
-  
+
   # data structure -> JSON string
   serialize = (data) ->
     res = ""
@@ -92,7 +92,7 @@ module.exports = (robot) ->
     if !loaded
       robot.logger.debug "s3-brain: Not saving to S3, because not loaded yet"
       return
-      
+
     json = serialize(brainData)
     if json==lastSavedState # optimization, save only when anything changed
       robot.logger.debug "s3-brain: Not saving to S3, no brain changes"
@@ -121,7 +121,7 @@ module.exports = (robot) ->
       else
         robot.logger.info "s3-brain: No brain memory available in S3: #{brainPath} => started with no memory"
         robot.brain.mergeData {}
-        
+
   robot.brain.on 'loaded', () ->
     loaded = true
     robot.brain.resetSaveInterval(saveInterval)
@@ -132,12 +132,12 @@ module.exports = (robot) ->
 
   robot.brain.on 'save', (data = {}) ->
     saveBrain(data)
-    
+
   robot.router.get "/hubot/s3brain/show", (req, res) ->
     res.writeHead 200, {'Content-Type': 'text/plain'}
     response = "BRAIN:\n" + serialize(robot.brain.data)
     res.end response
-    
+
   robot.router.get "/hubot/s3brain/forget", (req, res) ->
     robot.brain.data = {}
     res.writeHead 200, {'Content-Type': 'text/plain'}
