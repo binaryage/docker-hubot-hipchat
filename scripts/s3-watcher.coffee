@@ -76,21 +76,24 @@ module.exports = (robot) ->
       robot.logger.debug "s3-watcher: got #{bucketNames.length} buckets"
       cb("OK") unless bucketNames.length
       _.each bucketNames, (bucket) ->
-        fetchBucketList bucket, (newList) ->
-          robot.logger.debug "s3-watcher: got current #{newList.length} items in #{bucket}"
-          checked += newList.length
-          oldList = getCachedBucketList(bucket)
-          robot.logger.debug "s3-watcher: got #{oldList.length} cached items in #{bucket}"
-          report = buildReportForBucket(bucket, oldList, newList)
-          if report.added.length or report.removed.length or report.modified.length
-            robot.logger.debug "s3-watcher: RESULT: changed detected in #{bucket} (added=#{report.added.length} removed=#{report.removed.length} modified=#{report.modified.length})"
-            reportToHipChat report
-            storeBucketListInCache bucket, newList
-            # prefetchCDN_ CDN_DOWNLOADS2_ID, CDN_LOGIN, CDN_PASSWORD, report  if bucket.match(/^downloads-1/)
+        fetchBucketList bucket, (newList, error) ->
+          if error
+            cb("s3-watcher: error fetching #{bucket} #{error}") 
           else
-            robot.logger.debug "s3-watcher: RESULT: nothing changed in #{bucket}"
-          counter+=1
-          cb("OK - checked #{checked} items") if counter==bucketNames.length
+            robot.logger.debug "s3-watcher: got current #{newList.length} items in #{bucket}"
+            checked += newList.length
+            oldList = getCachedBucketList(bucket)
+            robot.logger.debug "s3-watcher: got #{oldList.length} cached items in #{bucket}"
+            report = buildReportForBucket(bucket, oldList, newList)
+            if report.added.length or report.removed.length or report.modified.length
+              robot.logger.debug "s3-watcher: RESULT: changed detected in #{bucket} (added=#{report.added.length} removed=#{report.removed.length} modified=#{report.modified.length})"
+              reportToHipChat report
+              storeBucketListInCache bucket, newList
+              # prefetchCDN_ CDN_DOWNLOADS2_ID, CDN_LOGIN, CDN_PASSWORD, report  if bucket.match(/^downloads-1/)
+            else
+              robot.logger.debug "s3-watcher: RESULT: nothing changed in #{bucket}"
+            counter+=1
+            cb("OK - checked #{checked} items") if counter==bucketNames.length
 
   # see https://client.cdn77.com/help/prefetch#cdn
   # prefetchCDN_ = (cdnId, cdnLogin, cdnPassword, report) ->
