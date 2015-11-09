@@ -72,7 +72,11 @@ module.exports = (robot) ->
   run = (cb) ->
     counter = 0
     checked = 0
-    fetchBucketNames (bucketNames) ->
+    fetchBucketNames (bucketNames, error) ->
+      if error
+        robot.logger.error "s3-watcher: unable to fetch bucket names: #{error}"
+        cb("FAILED")
+        return
       robot.logger.debug "s3-watcher: got #{bucketNames.length} buckets"
       cb("OK") unless bucketNames.length
       _.each bucketNames, (bucket) ->
@@ -207,18 +211,21 @@ module.exports = (robot) ->
       s3.get '/', query, 'xml', (error, result) ->
         cb?(null, error) if error
 
-        for obj in result["Contents"]
-          key = obj["Key"]
-          tag = obj["ETag"].replace(tagTrimRe, '')
-          items.push
-            path: key
-            tag: tag
+        try
+          for obj in result["Contents"]
+            key = obj["Key"]
+            tag = obj["ETag"].replace(tagTrimRe, '')
+            items.push
+              path: key
+              tag: tag
 
-        if result["IsTruncated"] == "true"
-          fetch(result["Marker"])
-        else
-          robot.logger.debug "s3-watcher: fetchBucketList done #{items.length}"
-          cb(items)
+          if result["IsTruncated"] == "true"
+            fetch(result["Marker"])
+          else
+            robot.logger.debug "s3-watcher: fetchBucketList done #{items.length}"
+            cb?(items)
+        catch e
+          cb?(null, e)
 
     fetch()
 
@@ -235,7 +242,7 @@ module.exports = (robot) ->
         names.push name
 
       robot.logger.debug "s3-watcher: fetchBucketNames => #{names.length}"
-      cb(names)
+      cb?(names)
 
   buildReportForBucket = (bucket, oldList, newList) ->
     oldPaths = _.map oldList, (item) -> item.path
