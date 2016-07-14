@@ -26,7 +26,7 @@ http = require "http"
 querystring = require "querystring"
 hipchat = require "node-hipchat"
 aws = require "aws2js"
-_ = require "underscore"
+_ = require "lodash"
 
 module.exports = (robot) ->
   HIPCHAT_TOKEN = process.env.HUBOT_HIPCHAT_TOKEN
