@@ -3,6 +3,7 @@ FROM ubuntu:15.04
 # following setup taken from
 #   https://github.com/iliyan-trifonov/docker-node-nvm/blob/96a94d74b8922dded5fce45a08ec367aeb5750c8/Dockerfile
 
+RUN apt-get update
 RUN apt-get install -y curl git python build-essential
 
 # add user node and use it to install node/npm and run the app
